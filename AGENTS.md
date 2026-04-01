@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Project Overview
 Spring Boot playground for exploring distributed systems concepts — transaction isolation levels, Kafka messaging, and more. Primary artifact is **integration tests**; production code exists only to support them.
