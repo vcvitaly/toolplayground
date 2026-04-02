@@ -2,6 +2,8 @@ package io.github.vcvitaly.isolationplayground;
 
 import java.util.Map;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,11 +34,27 @@ public class AccountsRepository {
 		);
 	}
 
-	public void updateAmount(int id, double amount) {
+	public void withdraw(int id, double amount) {
+		updateAmount(id, amount, Operation.WITHDRAW);
+	}
+
+	public void deposit(int id, double amount) {
+		updateAmount(id, amount, Operation.DEPOSIT);
+	}
+
+	private void updateAmount(int id, double amount, Operation operation) {
 		jdbcTemplate.update(
-				"UPDATE accounts SET amount = :amount WHERE id = :id",
+				"UPDATE accounts SET amount = amount %s :amount WHERE id = :id".formatted(operation.getSymbol()),
 				Map.of("id", id, "amount", amount)
 		);
 		log.info("Updated amount for account {} to {}", id, amount);
+	}
+
+	@RequiredArgsConstructor
+	@Getter
+	private enum Operation {
+		DEPOSIT("+"), WITHDRAW("-");
+
+		private final String symbol;
 	}
 }
