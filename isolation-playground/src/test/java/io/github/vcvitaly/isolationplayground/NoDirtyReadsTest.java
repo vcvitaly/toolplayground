@@ -3,44 +3,25 @@ package io.github.vcvitaly.isolationplayground;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlGroup;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ReadCommittedIntegrationTest {
+class NoDirtyReadsTest extends AbstractPostgresTest {
 
-    private final Logger log = LoggerFactory.getLogger(ReadCommittedIntegrationTest.class);
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
-
-    @Autowired
-    private AccountsRepository accountsRepository;
-
-    @Autowired
-    private PlatformTransactionManager txManager;
+    private final Logger log = LoggerFactory.getLogger(NoDirtyReadsTest.class);
 
     @Test
     @SqlGroup({
             @Sql(scripts = "/sql/initial_accounts.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD),
             @Sql(scripts = "/sql/truncate_accounts.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     })
-    void noDirtyReads() {
+    void test() {
         TransactionTemplate t1 = new TransactionTemplate(txManager);
         t1.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         TransactionTemplate t2 = new TransactionTemplate(txManager);
@@ -72,12 +53,5 @@ class ReadCommittedIntegrationTest {
 
         Account alice = accountsRepository.findById(1);
         assertThat(alice.amount()).isEqualTo(800);
-    }
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
     }
 }
