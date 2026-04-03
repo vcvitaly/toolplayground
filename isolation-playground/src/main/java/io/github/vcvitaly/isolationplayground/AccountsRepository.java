@@ -6,14 +6,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import lombok.extern.slf4j.Slf4j;
 
 @Repository
 public class AccountsRepository {
@@ -40,6 +34,14 @@ public class AccountsRepository {
 
 	public void deposit(int id, double amount) {
 		updateAmount(id, amount, Operation.DEPOSIT);
+	}
+
+	public void setAmount(int id, double amount) {
+		jdbcTemplate.update(
+				"UPDATE accounts SET amount = :amount WHERE id = :id",
+				Map.of("id", id, "amount", amount)
+		);
+		log.info("Set amount for account {} to {}", id, amount);
 	}
 
 	private void updateAmount(int id, double amount, Operation operation) {
