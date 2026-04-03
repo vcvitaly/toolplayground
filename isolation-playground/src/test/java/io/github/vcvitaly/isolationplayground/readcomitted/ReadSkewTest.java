@@ -1,5 +1,7 @@
-package io.github.vcvitaly.isolationplayground;
+package io.github.vcvitaly.isolationplayground.readcomitted;
 
+import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
+import io.github.vcvitaly.isolationplayground.Account;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -17,8 +19,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ReadSkewTest extends AbstractPostgresTest {
-
-    private final Logger log = LoggerFactory.getLogger(ReadSkewTest.class);
 
     @Test
     @SqlGroup({

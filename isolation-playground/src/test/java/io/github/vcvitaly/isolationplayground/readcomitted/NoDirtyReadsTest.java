@@ -1,8 +1,9 @@
-package io.github.vcvitaly.isolationplayground;
+package io.github.vcvitaly.isolationplayground.readcomitted;
 
+import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
+import io.github.vcvitaly.isolationplayground.Account;
+import io.github.vcvitaly.isolationplayground.TestUtil;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlGroup;
 import org.springframework.transaction.TransactionDefinition;
@@ -13,8 +14,6 @@ import java.util.concurrent.CompletableFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class NoDirtyReadsTest extends AbstractPostgresTest {
-
-    private final Logger log = LoggerFactory.getLogger(NoDirtyReadsTest.class);
 
     @Test
     @SqlGroup({
