@@ -1,5 +1,6 @@
 package io.github.vcvitaly.isolationplayground;
 
+import java.util.List;
 import java.util.Map;
 
 import lombok.Getter;
@@ -19,6 +20,13 @@ public class AccountsRepository {
 	public AccountsRepository(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
+
+	public List<Account> findAll() {
+		return jdbcTemplate.query(
+				"SELECT id, client, amount FROM accounts",
+				(rs, _) -> new Account(rs.getInt("id"), rs.getString("client"), rs.getDouble("amount"))
+		);
+	}
 
 	public Account findById(int id) {
 		return jdbcTemplate.queryForObject(
@@ -42,6 +50,14 @@ public class AccountsRepository {
 				Map.of("id", id, "amount", amount)
 		);
 		log.info("Set amount for account {} to {}", id, amount);
+	}
+
+	public void addClient(int id, String client, double amount) {
+		jdbcTemplate.update(
+				"INSERT INTO accounts (id, client, amount) VALUES (:id, :client, :amount)",
+				Map.of("id", id, "client", client, "amount", amount)
+		);
+		log.info("Added client {} with id {} and amount {}", client, id, amount);
 	}
 
 	private void updateAmount(int id, double amount, Operation operation) {

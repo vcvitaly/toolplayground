@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Deprecated
 public class AccountsService {
 
 	private final AccountsRepository accountsRepository;
