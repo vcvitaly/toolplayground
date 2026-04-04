@@ -2,7 +2,7 @@ package io.github.vcvitaly.isolationplayground.readcomitted;
 
 import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
 import io.github.vcvitaly.isolationplayground.Account;
-import org.awaitility.Awaitility;
+import io.github.vcvitaly.isolationplayground.TransactionalPhase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.test.context.jdbc.Sql;
@@ -12,7 +12,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,7 +24,6 @@ public class ReadSkewTest extends AbstractPostgresTest {
     })
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     void test() {
-        AtomicReference<Phases> phase = new AtomicReference<>();
         TransactionTemplate t1 = new TransactionTemplate(txManager);
         t1.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         TransactionTemplate t2 = new TransactionTemplate(txManager);
@@ -35,7 +33,7 @@ public class ReadSkewTest extends AbstractPostgresTest {
             log.info("Started thread 1");
             accountsRepository.withdraw(2, 100);
             phase.set(Phases._1_WITHDRAWN_FROM_BOB1);
-            Awaitility.await().until(() -> phase.get() == Phases._2_CHECKED_BOB1_AMOUNT);
+            await(Phases._2_CHECKED_BOB1_AMOUNT);
             accountsRepository.deposit(3, 100);
             phase.set(Phases._3_DEPOSITED_TO_BOB2);
             return null;
@@ -43,12 +41,12 @@ public class ReadSkewTest extends AbstractPostgresTest {
 
         CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> {
             log.info("Started thread 2");
-            Awaitility.await().until(() -> phase.get() == Phases._1_WITHDRAWN_FROM_BOB1);
+            await(Phases._1_WITHDRAWN_FROM_BOB1);
             t2.execute(_ -> {
                 Account bob2 = accountsRepository.findById(2);
                 assertThat(bob2.amount()).isEqualTo(100);
                 phase.set(Phases._2_CHECKED_BOB1_AMOUNT);
-                Awaitility.await().until(() -> phase.get() == Phases._3_DEPOSITED_TO_BOB2);
+                await(Phases._3_DEPOSITED_TO_BOB2);
                 Account bob3 = accountsRepository.findById(3);
                 assertThat(bob3.amount()).isEqualTo(1000);
                 assertThat(bob2.amount() + bob3.amount()).isEqualTo(1100);
@@ -59,7 +57,7 @@ public class ReadSkewTest extends AbstractPostgresTest {
         CompletableFuture.allOf(cf1, cf2).join();
     }
 
-    private enum Phases {
+    private enum Phases implements TransactionalPhase {
         _1_WITHDRAWN_FROM_BOB1,
         _2_CHECKED_BOB1_AMOUNT,
         _3_DEPOSITED_TO_BOB2

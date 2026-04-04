@@ -2,7 +2,7 @@ package io.github.vcvitaly.isolationplayground.repeatableread;
 
 import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
 import io.github.vcvitaly.isolationplayground.Account;
-import org.awaitility.Awaitility;
+import io.github.vcvitaly.isolationplayground.TransactionalPhase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.test.context.jdbc.Sql;
@@ -13,13 +13,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class NoNonRepeatableReadsTest extends AbstractPostgresTest {
-
-    private AtomicReference<Phases> phase;
 
     @Test
     @SqlGroup({
@@ -28,7 +25,6 @@ public class NoNonRepeatableReadsTest extends AbstractPostgresTest {
     })
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     void test() {
-        phase = new AtomicReference<>();
         TransactionTemplate t1 = new TransactionTemplate(txManager);
         t1.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         TransactionTemplate t2 = new TransactionTemplate(txManager);
@@ -48,24 +44,22 @@ public class NoNonRepeatableReadsTest extends AbstractPostgresTest {
             phase.set(Phases._4_TX1_COMMITTED);
         });
 
-        CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> {
-            t2.execute(_ -> {
-                log.info("Started transaction 2");
-                phase.set(Phases._1_TX2_STARTED);
-                await(Phases._2_TX1_INSERTED_NEW_ACCOUNT);
-                assertThat(accountsRepository.findAll().stream().map(Account::client).toList())
-                        .containsExactlyInAnyOrderElementsOf(
-                                List.of("alice", "bob", "bob")
-                        );
-                phase.set(Phases._3_TX2_CHECKED_FIRST_TIME);
-                await(Phases._4_TX1_COMMITTED);
-                assertThat(accountsRepository.findAll().stream().map(Account::client).toList())
-                        .containsExactlyInAnyOrderElementsOf(
-                                List.of("alice", "bob", "bob")
-                        );
-                return null;
-            });
-        });
+        CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> t2.execute(_ -> {
+            log.info("Started transaction 2");
+            phase.set(Phases._1_TX2_STARTED);
+            await(Phases._2_TX1_INSERTED_NEW_ACCOUNT);
+            assertThat(accountsRepository.findAll().stream().map(Account::client).toList())
+                    .containsExactlyInAnyOrderElementsOf(
+                            List.of("alice", "bob", "bob")
+                    );
+            phase.set(Phases._3_TX2_CHECKED_FIRST_TIME);
+            await(Phases._4_TX1_COMMITTED);
+            assertThat(accountsRepository.findAll().stream().map(Account::client).toList())
+                    .containsExactlyInAnyOrderElementsOf(
+                            List.of("alice", "bob", "bob")
+                    );
+            return null;
+        }));
 
         CompletableFuture.allOf(cf1, cf2).join();
         assertThat(accountsRepository.findAll().stream().map(Account::client).toList())
@@ -74,11 +68,7 @@ public class NoNonRepeatableReadsTest extends AbstractPostgresTest {
                 );
     }
 
-    private void await(Phases awaitedPhase) {
-        Awaitility.await().until(() -> phase.get() == awaitedPhase);
-    }
-
-    private enum Phases {
+    private enum Phases implements TransactionalPhase {
         _1_TX2_STARTED,
         _2_TX1_INSERTED_NEW_ACCOUNT,
         _3_TX2_CHECKED_FIRST_TIME,
