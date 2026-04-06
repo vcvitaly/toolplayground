@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class SerializationFailuresInsteadOfLostUpdatesTest extends AbstractPostgresTest {
+public class SerializationFailureIntererstAccrualTest extends AbstractPostgresTest {
 
     @Test
     @SqlGroup({

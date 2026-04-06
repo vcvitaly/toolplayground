@@ -13,6 +13,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Testcontainers
@@ -42,5 +44,11 @@ public abstract class AbstractPostgresTest {
 
     protected void await(TransactionalPhase awaitedPhase) {
         Awaitility.await().until(() -> phase.get() == awaitedPhase);
+    }
+
+    protected Executor getExecutor(String name) {
+        return Executors.newSingleThreadExecutor(
+                r -> new Thread(r, name)
+        );
     }
 }
