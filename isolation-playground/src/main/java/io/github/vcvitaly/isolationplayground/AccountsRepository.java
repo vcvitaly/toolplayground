@@ -60,12 +60,18 @@ public class AccountsRepository {
 		log.info("Added client {} with id {} and amount {}", client, id, amount);
 	}
 
+	public void runArbitrarySql(String sql) {
+		log.info("Running arbitrary SQL: {}", sql);
+		jdbcTemplate.update(sql, Map.of());
+		log.info("Finished running arbitrary SQL: {}", sql);
+	}
+
 	private void updateAmount(int id, double amount, Operation operation) {
 		jdbcTemplate.update(
 				"UPDATE accounts SET amount = amount %s :amount WHERE id = :id".formatted(operation.getSymbol()),
 				Map.of("id", id, "amount", amount)
 		);
-		log.info("Updated amount for account {} to {}", id, amount);
+		log.info("Updated amount for account {} with {}{}", id, operation.getSymbol(), amount);
 	}
 
 	@RequiredArgsConstructor
