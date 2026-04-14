@@ -49,7 +49,7 @@ public class SerializationFailureIntererstAccrualTest extends AbstractPostgresTe
             log.info("Started transaction 2");
             phase.set(Phases._2_TX2_TRIES_UPDATE);
             try {
-                accountsRepository.runArbitrarySql("""
+                accountsRepository.runArbitraryUpdate("""
                         UPDATE accounts SET amount = amount * 1.01
                         WHERE client IN (
                             SELECT client

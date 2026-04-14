@@ -60,10 +60,14 @@ public class AccountsRepository {
 		log.info("Added client {} with id {} and amount {}", client, id, amount);
 	}
 
-	public void runArbitrarySql(String sql) {
+	public void runArbitraryUpdate(String sql) {
 		log.info("Running arbitrary SQL: {}", sql);
 		jdbcTemplate.update(sql, Map.of());
 		log.info("Finished running arbitrary SQL: {}", sql);
+	}
+
+	public <T> T runArbitratrySelect(String sql, Class<T> clazz) {
+		return jdbcTemplate.queryForObject(sql, Map.of(), clazz);
 	}
 
 	private void updateAmount(int id, double amount, Operation operation) {
