@@ -1,7 +1,6 @@
 package io.github.vcvitaly.isolationplayground.repeatableread;
 
 import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
-import io.github.vcvitaly.isolationplayground.Account;
 import io.github.vcvitaly.isolationplayground.TransactionalPhase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -40,34 +39,36 @@ public class WriteSkewTest extends AbstractPostgresTest {
             phase.set(Phases._1_TX1_CHECKED_BALANCE);
             await(Phases._2_TX2_CHECKED_BALANCE);
             accountsRepository.withdraw(2, 600.0);
-            await(Phases._3_TX2_COMMITTED);
+            phase.set(Phases._3_TX1_UPDATED_BALANCE);
+            await(Phases._4_TX2_COMMITTED);
             return null;
         }), getExecutor("tx1-thread"));
 
-
+        await(Phases._1_TX1_CHECKED_BALANCE);
         CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> {
-            await(Phases._1_TX1_CHECKED_BALANCE);
             t2.execute(status -> {
                 log.info("Started transaction 2");
                 Double sum = accountsRepository.runArbitratrySelect("SELECT sum(amount) FROM accounts WHERE client = 'bob'", Double.class);
                 assertThat(sum).isEqualTo(900);
                 phase.set(Phases._2_TX2_CHECKED_BALANCE);
+                await(Phases._3_TX1_UPDATED_BALANCE);
                 accountsRepository.withdraw(3, 600.0);
                 return null;
             });
         }, getExecutor("tx2-thread")).whenComplete((v, e) -> {
             log.info("Transaction 2 completed");
-            phase.set(Phases._3_TX2_COMMITTED);
+            phase.set(Phases._4_TX2_COMMITTED);
         });
 
         CompletableFuture.allOf(cf1, cf2).join();
         Double sum = accountsRepository.runArbitratrySelect("SELECT sum(amount) FROM accounts WHERE client = 'bob'", Double.class);
-        assertThat(sum).isEqualTo(300);
+        assertThat(sum).isEqualTo(-300.0);
     }
 
     private enum Phases implements TransactionalPhase {
         _1_TX1_CHECKED_BALANCE,
         _2_TX2_CHECKED_BALANCE,
-        _3_TX2_COMMITTED
+        _3_TX1_UPDATED_BALANCE,
+        _4_TX2_COMMITTED
     }
 }
