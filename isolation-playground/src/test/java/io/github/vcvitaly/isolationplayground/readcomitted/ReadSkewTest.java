@@ -32,21 +32,21 @@ public class ReadSkewTest extends AbstractPostgresTest {
         CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> t1.execute(_ -> {
             log.info("Started thread 1");
             accountsRepository.withdraw(2, 100);
-            phase.set(Phases._1_WITHDRAWN_FROM_BOB1);
-            await(Phases._2_CHECKED_BOB1_AMOUNT);
+            phase.set(Phases._1_TX1_WITHDRAWN_FROM_BOB1);
+            await(Phases._2_TX2_CHECKED_BOB1_AMOUNT);
             accountsRepository.deposit(3, 100);
-            phase.set(Phases._3_DEPOSITED_TO_BOB2);
+            phase.set(Phases._3_TX1_DEPOSITED_TO_BOB2);
             return null;
         }));
 
         CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> {
             log.info("Started thread 2");
-            await(Phases._1_WITHDRAWN_FROM_BOB1);
+            await(Phases._1_TX1_WITHDRAWN_FROM_BOB1);
             t2.execute(_ -> {
                 Account bob2 = accountsRepository.findById(2);
                 assertThat(bob2.amount()).isEqualTo(100);
-                phase.set(Phases._2_CHECKED_BOB1_AMOUNT);
-                await(Phases._3_DEPOSITED_TO_BOB2);
+                phase.set(Phases._2_TX2_CHECKED_BOB1_AMOUNT);
+                await(Phases._3_TX1_DEPOSITED_TO_BOB2);
                 Account bob3 = accountsRepository.findById(3);
                 assertThat(bob3.amount()).isEqualTo(1000);
                 assertThat(bob2.amount() + bob3.amount()).isEqualTo(1100);
@@ -58,8 +58,8 @@ public class ReadSkewTest extends AbstractPostgresTest {
     }
 
     private enum Phases implements TransactionalPhase {
-        _1_WITHDRAWN_FROM_BOB1,
-        _2_CHECKED_BOB1_AMOUNT,
-        _3_DEPOSITED_TO_BOB2
+        _1_TX1_WITHDRAWN_FROM_BOB1,
+        _2_TX2_CHECKED_BOB1_AMOUNT,
+        _3_TX1_DEPOSITED_TO_BOB2
     }
 }
