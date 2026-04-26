@@ -1,4 +1,4 @@
-### No dirty reads
+### No dirty reads at read_committed and non-repeatable reads are allowed
 ```mermaid
 sequenceDiagram
     participant Main as Main Thread
@@ -31,6 +31,7 @@ sequenceDiagram
     T2-->>Main: cf2 complete
     Main->>Main: allOf(cf1, cf2).join()
 ```
+Key takeaway: When TX2 reads Alice's balance while TX1's withdrawal is uncommitted, it still sees the original 1000 — proving dirty reads are prevented. Only after TX1 commits does TX2 see 800.
 
 ### Read skew
 Both reads are correct separately, but we get an incorrect result in total.<br/>
