@@ -2,32 +2,34 @@
 ```mermaid
 sequenceDiagram
     participant Main as Main Thread
-    participant T1 as Thread 1 (TX1 - READ_COMMITTED)
-    participant T2 as Thread 2 (TX2 - READ_COMMITTED)
+    participant T1 as Thread 1 (TX1)
+    participant T2 as Thread 2 (TX2)
     participant DB as PostgreSQL
 
-    Note over DB: Initial state: alice1=1000.00, bob2=100.00, bob3=900.00
-
     Main->>T1: CompletableFuture.runAsync
-    Note over Main: sleep(5ms)
     Main->>T2: CompletableFuture.runAsync
 
     T1->>DB: BEGIN (READ_COMMITTED)
-    T1->>DB: withdraw(alice, 200) → amount = 800
-    T1->>DB: SELECT alice → 800 ✓
-    Note over T1: sleep(2000ms) — holds uncommitted write
+    T1->>DB: UPDATE accounts SET amount = amount - 200 WHERE id=1
+    T1->>DB: SELECT * FROM accounts WHERE id=1
+    Note over T1: alice.amount = 800 ✓
+    T1-->>T2: signal: _1_TX1_WITHDRAWN_FROM_ALICE
 
-    Note over T2: sleep(100ms)
     T2->>DB: BEGIN (READ_COMMITTED)
-    T2->>DB: SELECT alice → 1000 ✓ (no dirty read!)
-    Note over T2: Sees original value, not T1's uncommitted 800
+    T2->>DB: SELECT * FROM accounts WHERE id=1
+    Note over T2: alice.amount = 1000 ✓<br/>(no dirty read — TX1 not committed)
+    T2-->>T1: signal: _2_TX2_CHECKED_BALANCE
+
+    T1->>DB: COMMIT
+    T1-->>T2: signal: _3_TX1_COMMITTED
+
+    T2->>DB: SELECT * FROM accounts WHERE id=1
+    Note over T2: alice.amount = 800 ✓<br/>(sees committed data)
     T2->>DB: COMMIT
 
-    Note over T1: wakes up
-    T1->>DB: COMMIT (amount = 800 now durable)
-
-    Main->>Main: CompletableFuture.allOf().join()
-    Main->>DB: SELECT alice → 800 ✓
+    T1-->>Main: cf1 complete
+    T2-->>Main: cf2 complete
+    Main->>Main: allOf(cf1, cf2).join()
 ```
 
 ### Read skew

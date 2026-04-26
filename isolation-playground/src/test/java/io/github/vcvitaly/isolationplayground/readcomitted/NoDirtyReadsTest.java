@@ -2,7 +2,7 @@ package io.github.vcvitaly.isolationplayground.readcomitted;
 
 import io.github.vcvitaly.isolationplayground.AbstractPostgresTest;
 import io.github.vcvitaly.isolationplayground.Account;
-import io.github.vcvitaly.isolationplayground.TestUtil;
+import io.github.vcvitaly.isolationplayground.TransactionalPhase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.test.context.jdbc.Sql;
@@ -29,31 +29,39 @@ class NoDirtyReadsTest extends AbstractPostgresTest {
         TransactionTemplate t2 = new TransactionTemplate(txManager);
         t2.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
 
-        CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> t1.execute(_ -> {
-            log.info("Started thread 1");
-            accountsRepository.withdraw(1, 200);
-            Account alice = accountsRepository.findById(1);
-            assertThat(alice.amount()).isEqualTo(800);
-            TestUtil.sleep(2_000);
-            return null;
-        }));
-
-        TestUtil.sleep(5);
+        CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> {
+            t1.execute(_ -> {
+                log.info("Started thread 1");
+                accountsRepository.withdraw(1, 200);
+                Account alice = accountsRepository.findById(1);
+                assertThat(alice.amount()).isEqualTo(800);
+                phase.set(Phases._1_TX1_WITHDRAWN_FROM_ALICE);
+                await(Phases._2_TX2_CHECKED_BALANCE);
+                return null;
+            });
+            phase.set(Phases._3_TX1_COMMITTED);
+        });
 
         CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> {
             log.info("Started thread 2");
-            TestUtil.sleep(100);
-            log.info("Waited for 100 ms and going to check the balance for 1");
+            await(Phases._1_TX1_WITHDRAWN_FROM_ALICE);
             t2.execute(_ -> {
                 Account alice = accountsRepository.findById(1);
                 assertThat(alice.amount()).isEqualTo(1000);
+                phase.set(Phases._2_TX2_CHECKED_BALANCE);
+                await(Phases._3_TX1_COMMITTED);
+                alice = accountsRepository.findById(1);
+                assertThat(alice.amount()).isEqualTo(800);
                 return null;
             });
         });
 
         CompletableFuture.allOf(cf1, cf2).join();
+    }
 
-        Account alice = accountsRepository.findById(1);
-        assertThat(alice.amount()).isEqualTo(800);
+    private enum Phases implements TransactionalPhase {
+        _1_TX1_WITHDRAWN_FROM_ALICE,
+        _2_TX2_CHECKED_BALANCE,
+        _3_TX1_COMMITTED
     }
 }
