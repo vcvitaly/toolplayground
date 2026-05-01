@@ -1,5 +1,6 @@
 package io.github.vcvitaly.isolationplayground;
 
+import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,11 @@ public abstract class AbstractPostgresTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+    }
+
+    protected void setPhase(TransactionalPhase phase) {
+        this.phase.set(phase);
+        log.info("set phase to : {}", phase);
     }
 
     protected void await(TransactionalPhase awaitedPhase) {
