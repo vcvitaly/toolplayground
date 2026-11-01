@@ -1,3 +1,4 @@
 rootProject.name = 'toolplayground'
 
 include 'isolation-playground'
+include 'locking-playground'
