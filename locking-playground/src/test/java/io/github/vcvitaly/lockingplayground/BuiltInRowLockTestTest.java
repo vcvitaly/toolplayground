@@ -1,5 +1,6 @@
 package io.github.vcvitaly.lockingplayground;
 
+import io.github.vcvitaly.playground.AbstractPostgresTest;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.RepeatedTest;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 @Slf4j
 class BuiltInRowLockTestTest extends AbstractPostgresTest {
 

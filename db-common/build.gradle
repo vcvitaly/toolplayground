@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+    id 'java-common-conventions'
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    testFixturesImplementation 'org.springframework.boot:spring-boot-starter-data-jdbc-test'
+
+    testFixturesImplementation 'org.testcontainers:testcontainers-postgresql:2.0.4'
+    testFixturesImplementation "org.testcontainers:testcontainers:2.0.4"
+    testFixturesImplementation "org.testcontainers:testcontainers-junit-jupiter:2.0.4"
+
+    testFixturesImplementation("org.awaitility:awaitility:4.3.0")
+
+    testFixturesImplementation platform('org.junit:junit-bom:6.0.0')
+    testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+    testFixturesRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    testFixturesImplementation "org.assertj:assertj-core:3.11.1"
+}

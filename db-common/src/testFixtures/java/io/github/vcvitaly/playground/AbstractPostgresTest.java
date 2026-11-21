@@ -1,4 +1,4 @@
-package io.github.vcvitaly.lockingplayground;
+package io.github.vcvitaly.playground;
 
 import org.awaitility.Awaitility;
 import org.slf4j.Logger;

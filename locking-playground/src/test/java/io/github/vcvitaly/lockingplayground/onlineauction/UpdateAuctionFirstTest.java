@@ -1,13 +1,13 @@
 package io.github.vcvitaly.lockingplayground.onlineauction;
 
-import io.github.vcvitaly.lockingplayground.AbstractPostgresTest;
-import io.github.vcvitaly.lockingplayground.TransactionalPhase;
+import io.github.vcvitaly.playground.AbstractPostgresTest;
+import io.github.vcvitaly.playground.TransactionalPhase;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 @Slf4j
 public class UpdateAuctionFirstTest extends AbstractPostgresTest {
 
