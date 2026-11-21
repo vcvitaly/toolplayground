@@ -1,6 +1,8 @@
 package io.github.vcvitaly.lockingplayground;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.RepeatedTest;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -9,6 +11,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Slf4j
 class BuiltInRowLockTestTest extends AbstractPostgresTest {
 
     @Autowired
@@ -52,5 +55,10 @@ class BuiltInRowLockTestTest extends AbstractPostgresTest {
                 .isEqualTo(100);
 
         jdbcTemplate.execute("drop table kv");
+    }
+
+    @Override
+    protected Logger getLog() {
+        return log;
     }
 }
