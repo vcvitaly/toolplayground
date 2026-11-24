@@ -1,0 +1,14 @@
+plugins {
+    id 'java'
+    id("java-common-conventions")
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    testImplementation "org.testcontainers:testcontainers:2.0.4"
+    testImplementation "org.testcontainers:testcontainers-junit-jupiter:2.0.4"
+
+    testImplementation("org.awaitility:awaitility:4.3.0")
+
+}
