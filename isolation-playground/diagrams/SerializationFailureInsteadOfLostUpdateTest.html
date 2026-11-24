@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serialization failure instead of lost update</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --panel: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e3e1dc; --lifeline: #c9c6bf;
+    --accent: #2f6fdb; --accent-soft: #e6eefc; --signal: #8a4fd6;
+    --ok: #1f8a4c; --ok-soft: #e3f4ea; --warn: #b26b00; --warn-soft: #fdf1dc; --err: #c4302b; --err-soft: #fbe5e4;
+    --info-soft: #eef1f5; --act: #dde7fb; --changed: #fff2b8; --code-bg: #f6f5f2;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161618; --panel: #1e1e21; --ink: #ececef; --muted: #9a9aa2; --line: #303036; --lifeline: #48484f;
+      --accent: #6d9dff; --accent-soft: #23304a; --signal: #b48cff;
+      --ok: #4cc47e; --ok-soft: #1b3326; --warn: #e5a440; --warn-soft: #3a2c14; --err: #ff6b63; --err-soft: #3d1f1d;
+      --info-soft: #25272c; --act: #2a3550; --changed: #4a4220; --code-bg: #19191b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--sans); }
+  header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 2px; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+  header .cls { font: 12px var(--mono); color: var(--muted); }
+  header p { margin: 8px 0 0; max-width: 900px; }
+  .controls { display: flex; align-items: center; gap: 8px; padding: 10px 24px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  .controls button { font: inherit; padding: 5px 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 6px; cursor: pointer; min-width: 38px; }
+  .controls button:hover { border-color: var(--accent); }
+  .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .controls input[type=range] { flex: 1; max-width: 420px; accent-color: var(--accent); }
+  .controls .pos { font: 12px var(--mono); color: var(--muted); min-width: 64px; }
+  .controls .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 34%); gap: 0; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  #diagram-wrap { overflow: auto; padding: 8px 12px 24px; border-right: 1px solid var(--line); }
+  #takeaway { margin: 8px 12px 0; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; max-width: 900px; }
+  aside { display: flex; flex-direction: column; gap: 14px; padding: 14px 18px 24px; position: sticky; top: 49px; align-self: start;
+    max-height: calc(100vh - 49px); overflow: auto; }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  #step-title { font-weight: 600; white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; }
+  #step-who { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  #step-explain { margin-top: 8px; white-space: pre-wrap; }
+  #step-explain:empty { display: none; }
+  table { border-collapse: collapse; width: 100%; font: 12.5px var(--mono); }
+  th, td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  td.changed { background: var(--changed); border-radius: 3px; }
+  tr.new td { background: var(--ok-soft); }
+  .tbl-label { font-size: 12px; margin: 10px 0 4px; color: var(--muted); }
+  .tbl-label b { color: var(--ink); font-weight: 600; }
+  .tbl-label:first-child { margin-top: 0; }
+  ul.facts { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
+  ul.facts:empty { display: none; }
+  #code { position: relative; margin: 0; max-height: 46vh; overflow: auto; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    font: 12px/1.5 var(--mono); padding: 6px 0; }
+  #code .ln { display: block; padding: 0 10px 0 0; white-space: pre; cursor: default; }
+  #code .ln.ref { cursor: pointer; }
+  #code .ln .n { display: inline-block; width: 36px; text-align: right; color: var(--muted); margin-right: 12px; user-select: none; }
+  #code .ln.hl { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  #code:empty { display: none; }
+
+  /* SVG */
+  svg { display: block; font-family: var(--sans); }
+  .p-box { fill: var(--panel); stroke: var(--lifeline); }
+  .p-box.tx { stroke: var(--accent); }
+  .p-box.db { stroke: var(--ink); }
+  .p-label { font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .p-sub { font-size: 10.5px; fill: var(--muted); }
+  .lifeline { stroke: var(--lifeline); stroke-dasharray: 4 4; }
+  .act { fill: var(--act); stroke: var(--accent); stroke-width: 1; }
+  .act.rolled { stroke: var(--err); }
+  .row-bg { fill: transparent; }
+  .step { cursor: pointer; transition: opacity .15s; }
+  .step:hover .row-bg { fill: var(--info-soft); }
+  .step.future { opacity: .28; }
+  .step.current .row-bg { fill: var(--accent-soft); }
+  .num { font: 600 10px var(--mono); fill: var(--muted); }
+  .step.current .num { fill: var(--accent); }
+  .lbl { font-size: 12px; fill: var(--ink); }
+  .lbl.code { font-family: var(--mono); font-size: 11.5px; }
+  .res { font: 11px var(--mono); fill: var(--muted); }
+  .arrow { stroke: var(--ink); stroke-width: 1.4; fill: none; }
+  .arrow.reply { stroke-dasharray: 5 4; }
+  .arrow.signal { stroke: var(--signal); stroke-dasharray: 2 3; stroke-width: 1.6; }
+  .lbl.signal { fill: var(--signal); font-family: var(--mono); font-size: 11px; }
+  .t-ok .arrow { stroke: var(--ok); } .t-warn .arrow { stroke: var(--warn); } .t-error .arrow { stroke: var(--err); }
+  .t-error .lbl { fill: var(--err); }
+  .note { stroke-width: 1; }
+  .note.info { fill: var(--info-soft); stroke: var(--lifeline); }
+  .note.ok { fill: var(--ok-soft); stroke: var(--ok); }
+  .note.warn { fill: var(--warn-soft); stroke: var(--warn); }
+  .note.error { fill: var(--err-soft); stroke: var(--err); }
+  .blocked { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 2 3; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <div class="cls" id="cls"></div>
+  <p id="summary"></p>
+</header>
+<div class="controls">
+  <button id="first" title="Initial state (Home)">⏮</button>
+  <button id="prev" title="Previous step (←)">◀</button>
+  <button id="play" title="Play / pause (Space)">▶</button>
+  <button id="next" title="Next step (→)">▶︎|</button>
+  <input type="range" id="scrub" min="0" value="0" aria-label="Step">
+  <span class="pos" id="pos"></span>
+  <span class="hint">← → step · Space play · click a step or a highlighted code line</span>
+</div>
+<main>
+  <section>
+    <div id="takeaway" hidden></div>
+    <div id="diagram-wrap"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  </section>
+  <aside>
+    <div class="card">
+      <h2>Step</h2>
+      <div id="step-who"></div>
+      <div id="step-title"></div>
+      <div id="step-explain"></div>
+    </div>
+    <div class="card">
+      <h2>Database</h2>
+      <div id="db"></div>
+      <ul class="facts" id="facts"></ul>
+    </div>
+    <div>
+      <h2>Source</h2>
+      <pre id="code"></pre>
+    </div>
+  </aside>
+</main>
+
+<script type="application/json" id="model">{"title": "Serialization failure instead of lost update", "testClass": "io.github.vcvitaly.isolationplayground.repeatableread.SerializationFailureInsteadOfLostUpdateTest", "sourcePath": "isolation-playground/src/test/java/io/github/vcvitaly/isolationplayground/repeatableread/SerializationFailureInsteadOfLostUpdateTest.java", "summary": "Both transactions read Alice's balance (800) and each tries to write 800 + 100. TX1 (READ COMMITTED) commits first. TX2 (REPEATABLE READ) then updates a row changed after its snapshot, so Postgres aborts it with a serialization failure instead of silently overwriting TX1's write.", "takeaway": "Under READ COMMITTED the same interleaving loses an update (see LostUpdateTest). Under REPEATABLE READ, Postgres detects that the row changed after TX2's snapshot and raises SQLSTATE 40001, so the final balance is 900 from TX1 alone. The application must retry TX2 to get 1000.", "participants": [{"id": "main", "label": "Main thread", "kind": "thread"}, {"id": "t1", "label": "TX1", "sub": "tx1-thread · READ COMMITTED", "kind": "tx"}, {"id": "t2", "label": "TX2", "sub": "tx2-thread · REPEATABLE READ", "kind": "tx"}, {"id": "db", "label": "PostgreSQL", "kind": "db"}], "table": "accounts", "columns": ["id", "client", "amount"], "initialDb": [[1, "alice", 800]], "steps": [{"kind": "message", "from": "main", "to": "t1", "label": "runAsync(tx1-thread)", "lines": [37, 48]}, {"kind": "message", "from": "main", "to": "t2", "label": "runAsync(tx2-thread)", "lines": [50, 64]}, {"kind": "message", "from": "t1", "to": "db", "label": "BEGIN (READ COMMITTED)", "tx": "begin", "lines": [38], "explain": "execute() takes a connection and turns off autocommit. pgjdbc sends the actual BEGIN with the first statement."}, {"kind": "message", "from": "t2", "to": "db", "label": "BEGIN (REPEATABLE READ)", "tx": "begin", "lines": [50], "explain": "TX2 opens its transaction right away, but its snapshot is not taken until its first statement runs (step 9)."}, {"kind": "self", "at": "t2", "label": "await(_1_TX1_CHECKED_BALANCE)", "blocked": true, "lines": [52]}, {"kind": "message", "from": "t1", "to": "db", "label": "SELECT id, client, amount FROM accounts WHERE id = 1", "result": "alice, 800", "lines": [40]}, {"kind": "assert", "at": "t1", "label": "alice.amount == 800", "lines": [41]}, {"kind": "signal", "from": "t1", "to": "t2", "label": "_1_TX1_CHECKED_BALANCE", "lines": [42, 52]}, {"kind": "message", "from": "t2", "to": "db", "label": "SELECT id, client, amount FROM accounts WHERE id = 1", "result": "alice, 800", "lines": [53], "explain": "This is TX2's first statement, so REPEATABLE READ takes its snapshot here. Every later statement in TX2 sees the database as of this moment.", "state": {"views": {"t2": "snapshot from step 9: alice = 800"}}}, {"kind": "assert", "at": "t2", "label": "alice.amount == 800", "lines": [54]}, {"kind": "signal", "from": "t2", "to": "t1", "label": "_2_TX2_CHECKED_BALANCE", "lines": [55, 43]}, {"kind": "message", "from": "t1", "to": "db", "label": "UPDATE accounts SET amount = 900 WHERE id = 1", "result": "UPDATE 1", "lines": [44], "explain": "TX1 writes 800 + 100, using the value it read in step 6. The row is now locked by TX1, and the new version is visible only inside TX1.", "state": {"pending": {"t1": [[1, "alice", 900]]}, "locks": ["row id=1: write lock held by TX1"]}}, {"kind": "message", "from": "t1", "to": "db", "label": "COMMIT", "tx": "commit", "lines": [45, 46], "explain": "The callback returns, so TransactionTemplate commits. Alice now has 900 and the row lock is released.", "state": {"committed": [[1, "alice", 900]], "pending": {"t1": []}, "locks": []}}, {"kind": "signal", "from": "t1", "to": "t2", "label": "_3_TX1_COMMITTED", "lines": [47, 56]}, {"kind": "message", "from": "t2", "to": "db", "label": "UPDATE accounts SET amount = 900 WHERE id = 1", "lines": [58], "explain": "TX2 also computes 800 + 100 from its stale read. Under READ COMMITTED this write would succeed and overwrite TX1's write, losing one deposit."}, {"kind": "message", "from": "db", "to": "t2", "label": "ERROR 40001: could not serialize access due to concurrent update", "reply": true, "tone": "error", "lines": [58], "explain": "The row's latest committed version was written by TX1, which committed after TX2's snapshot. A REPEATABLE READ transaction can't update a row that changed after its snapshot, so Postgres rejects the write."}, {"kind": "self", "at": "t2", "label": "catch → status.setRollbackOnly()", "tone": "warn", "lines": [59, 60, 61]}, {"kind": "message", "from": "t2", "to": "db", "label": "ROLLBACK", "tx": "rollback", "lines": [63, 64], "explain": "The transaction is marked rollback-only, so TransactionTemplate rolls it back. Postgres had already aborted it anyway.", "state": {"views": {"t2": "transaction ended"}}}, {"kind": "message", "from": "t1", "to": "main", "label": "cf1 complete", "reply": true, "lines": [66]}, {"kind": "message", "from": "t2", "to": "main", "label": "cf2 complete", "reply": true, "lines": [66]}, {"kind": "message", "from": "main", "to": "db", "label": "SELECT id, client, amount FROM accounts WHERE id = 1", "result": "alice, 900", "lines": [67]}, {"kind": "assert", "at": "main", "label": "amount == 900", "lines": [67]}, {"kind": "note", "over": ["main", "db"], "tone": "ok", "text": "No silent lost update: TX2 failed loudly with 40001 instead of overwriting.\nA retry of TX2 would read 900 and write 1000."}]}</script>
+<script type="application/json" id="source">"package io.github.vcvitaly.isolationplayground.repeatableread;\n\nimport io.github.vcvitaly.isolationplayground.AbstractPostgresTest;\nimport io.github.vcvitaly.isolationplayground.Account;\nimport io.github.vcvitaly.isolationplayground.TransactionalPhase;\nimport lombok.extern.slf4j.Slf4j;\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.Timeout;\nimport org.springframework.test.context.jdbc.Sql;\nimport org.springframework.test.context.jdbc.SqlGroup;\nimport org.springframework.transaction.TransactionDefinition;\nimport org.springframework.transaction.support.TransactionTemplate;\n\nimport java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.TimeUnit;\n\nimport static org.assertj.core.api.Assertions.assertThat;\n\n@Slf4j\npublic class SerializationFailureInsteadOfLostUpdateTest extends AbstractPostgresTest {\n\n    @Test\n    @SqlGroup({\n            @Sql(\n                    statements = \"INSERT INTO accounts VALUES (1, 'alice', 800.00)\",\n                    executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD\n            ),\n            @Sql(scripts = \"/sql/truncate_accounts.sql\", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)\n    })\n    @Timeout(value = 5, unit = TimeUnit.SECONDS)\n    void test() {\n        TransactionTemplate t1 = new TransactionTemplate(txManager);\n        t1.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);\n        TransactionTemplate t2 = new TransactionTemplate(txManager);\n        t2.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);\n\n        CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> {\n            t1.execute(_ -> {\n                log.info(\"Started transaction 1\");\n                Account alice = accountsRepository.findById(1);\n                assertThat(alice.amount()).isEqualTo(800.00);\n                setPhase(Phases._1_TX1_CHECKED_BALANCE);\n                await(Phases._2_TX2_CHECKED_BALANCE);\n                accountsRepository.setAmount(1, alice.amount() + 100);\n                return null;\n            });\n            setPhase(Phases._3_TX1_COMMITTED);\n        }, getExecutor(\"tx1-thread\"));\n\n        CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> t2.execute(status -> {\n            log.info(\"Started transaction 2\");\n            await(Phases._1_TX1_CHECKED_BALANCE);\n            Account alice = accountsRepository.findById(1);\n            assertThat(alice.amount()).isEqualTo(800.00);\n            setPhase(Phases._2_TX2_CHECKED_BALANCE);\n            await(Phases._3_TX1_COMMITTED);\n            try {\n                accountsRepository.setAmount(1, alice.amount() + 100);\n            } catch (Exception e) {\n                log.error(\"Failed to set amount\", e);\n                status.setRollbackOnly();\n            }\n            return null;\n        }), getExecutor(\"tx2-thread\"));\n\n        CompletableFuture.allOf(cf1, cf2).join();\n        assertThat(accountsRepository.findById(1).amount()).isEqualTo(900);\n    }\n\n    private enum Phases implements TransactionalPhase {\n        _1_TX1_CHECKED_BALANCE,\n        _2_TX2_CHECKED_BALANCE,\n        _3_TX1_COMMITTED\n    }\n}\n"</script>
+<script>
+(() => {
+  const M = JSON.parse(document.getElementById('model').textContent);
+  const SRC = JSON.parse(document.getElementById('source').textContent || '""');
+  const steps = M.steps;
+  const parts = M.participants;
+  const pIndex = Object.fromEntries(parts.map((p, i) => [p.id, i]));
+  const pById = Object.fromEntries(parts.map(p => [p.id, p]));
+  const NS = 'http://www.w3.org/2000/svg';
+
+  document.getElementById('title').textContent = M.title;
+  document.getElementById('cls').textContent = M.testClass || '';
+  document.getElementById('summary').textContent = M.summary || '';
+  if (M.takeaway) { const t = document.getElementById('takeaway'); t.textContent = M.takeaway; t.hidden = false; }
+
+  // ---------- layout ----------
+  const LEFT = 40, COL = 230, TOP = 70, LH = 15, CH = 6.6; // CH ≈ avg char width at 11.5–12px
+  const xOf = id => LEFT + COL / 2 + pIndex[id] * COL;
+  const width = LEFT + COL * parts.length + 10;
+
+  function wrap(text, maxPx) {
+    const maxChars = Math.max(12, Math.floor(maxPx / CH));
+    const out = [];
+    for (const para of String(text).split('\n')) {
+      let line = '';
+      for (const word of para.split(/(\s+)/)) {
+        if ((line + word).length > maxChars && line.trim()) { out.push(line.trimEnd()); line = word.trimStart(); }
+        else line += word;
+        while (line.length > maxChars) { out.push(line.slice(0, maxChars)); line = line.slice(maxChars); }
+      }
+      out.push(line);
+    }
+    return out;
+  }
+  const isCode = s => /^(SELECT|UPDATE|INSERT|DELETE|BEGIN|COMMIT|ROLLBACK|ERROR|SET|LOCK)\b/i.test(s) || /[()=]/.test(s) && !/\s{2}/.test(s);
+
+  function el(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function textBlock(g, lines, x, y, cls, anchor) {
+    const t = el('text', { x, y, class: cls, 'text-anchor': anchor || 'middle' }, g);
+    lines.forEach((ln, i) => el('tspan', { x, dy: i === 0 ? 0 : LH }, t, ln));
+    return t;
+  }
+
+  // measure steps
+  const layout = steps.map(s => {
+    let span = COL - 24, lines, h;
+    if (s.kind === 'message' || s.kind === 'signal') {
+      span = Math.abs(pIndex[s.to] - pIndex[s.from]) * COL - 24;
+      if (s.from === s.to) span = COL - 30;
+      lines = wrap(s.label, span);
+      h = lines.length * LH + 12 + (s.result ? LH : 0) + 10;
+    } else if (s.kind === 'self' || s.kind === 'assert') {
+      lines = wrap((s.kind === 'assert' ? (s.ok === false ? '✗ ' : '✓ ') : '') + s.label, COL - 34);
+      h = Math.max(lines.length * LH + 12, 30);
+    } else { // note
+      const idx = s.over.map(id => pIndex[id]);
+      const n = Math.max(...idx) - Math.min(...idx) + 1;
+      span = n * COL - 30;
+      lines = wrap(s.text, span - 16);
+      h = lines.length * LH + 22;
+    }
+    return { lines, h, span };
+  });
+  let y = TOP + 16;
+  layout.forEach(L => { L.y = y; y += L.h; });
+  const height = y + 30;
+
+  const svg = document.getElementById('svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+
+  const defs = el('defs', {}, svg);
+  for (const [name, color] of [['ink', 'var(--ink)'], ['signal', 'var(--signal)'], ['ok', 'var(--ok)'], ['warn', 'var(--warn)'], ['error', 'var(--err)']]) {
+    const m = el('marker', { id: 'arr-' + name, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0,0 L10,5 L0,10 z', style: `fill:${color}` }, m);
+  }
+
+  // lifelines + headers
+  const gLife = el('g', {}, svg);
+  parts.forEach(p => {
+    const x = xOf(p.id);
+    el('line', { x1: x, y1: TOP, x2: x, y2: height - 10, class: 'lifeline' }, gLife);
+    const g = el('g', {}, gLife);
+    el('rect', { x: x - COL / 2 + 14, y: 12, width: COL - 28, height: TOP - 22, rx: 7, class: 'p-box ' + (p.kind || '') }, g);
+    el('text', { x, y: p.sub ? 34 : 41, class: 'p-label', 'text-anchor': 'middle' }, g, (p.kind === 'db' ? '🗄 ' : '') + p.label);
+    if (p.sub) el('text', { x, y: 50, class: 'p-sub', 'text-anchor': 'middle' }, g, p.sub);
+  });
+
+  // activation bars (BEGIN → COMMIT/ROLLBACK)
+  const gAct = el('g', {}, svg);
+  const arrowY = i => { const L = layout[i]; return L.y + L.lines.length * LH + 6; };
+  const open = {};
+  const bars = [];
+  steps.forEach((s, i) => {
+    if (s.kind !== 'message' || !s.tx) return;
+    if (s.tx === 'begin') open[s.from] = i;
+    else if (open[s.from] != null) { bars.push({ who: s.from, a: open[s.from], b: i, rolled: s.tx === 'rollback' }); delete open[s.from]; }
+  });
+  for (const who in open) bars.push({ who, a: open[who], b: null });
+  bars.forEach(bar => {
+    const x = xOf(bar.who), y1 = arrowY(bar.a), y2 = bar.b == null ? height - 20 : arrowY(bar.b);
+    el('rect', { x: x - 5, y: y1, width: 10, height: Math.max(4, y2 - y1), rx: 2, class: 'act' + (bar.rolled ? ' rolled' : '') }, gAct);
+  });
+
+  // steps
+  const gSteps = el('g', {}, svg);
+  const stepEls = steps.map((s, i) => {
+    const L = layout[i];
+    const tone = s.tone || 'info';
+    const g = el('g', { class: `step t-${tone}`, 'data-i': i + 1 }, gSteps);
+    el('rect', { x: 0, y: L.y, width, height: L.h, class: 'row-bg' }, g);
+    el('text', { x: 14, y: L.y + 14, class: 'num', 'text-anchor': 'middle' }, g, i + 1);
+
+    if (s.kind === 'message' || s.kind === 'signal') {
+      const x1 = xOf(s.from), x2 = xOf(s.to), ay = arrowY(i);
+      const sig = s.kind === 'signal';
+      const lblCls = 'lbl' + (sig ? ' signal' : isCode(s.label) ? ' code' : '');
+      if (s.from === s.to) {
+        textBlock(g, L.lines, x1 + 14, L.y + 14, lblCls, 'start');
+      } else {
+        textBlock(g, L.lines, (x1 + x2) / 2, L.y + 14, lblCls);
+        const dir = Math.sign(x2 - x1);
+        const marker = sig ? 'signal' : (tone === 'info' ? 'ink' : tone);
+        el('line', { x1: x1 + dir * 6, y1: ay, x2: x2 - dir * 7, y2: ay,
+          class: 'arrow' + (s.reply ? ' reply' : '') + (sig ? ' signal' : ''), 'marker-end': `url(#arr-${marker})` }, g);
+        if (s.result) el('text', { x: (x1 + x2) / 2, y: ay + LH, class: 'res', 'text-anchor': 'middle' }, g, '→ ' + s.result);
+      }
+    } else if (s.kind === 'self' || s.kind === 'assert') {
+      const x = xOf(s.at);
+      if (s.kind === 'assert') {
+        const t = s.ok === false ? 'error' : 'ok';
+        const bh = L.lines.length * LH + 8;
+        el('rect', { x: x + 10, y: L.y + 4, width: COL - 26, height: bh, rx: 5, class: 'note ' + t }, g);
+        textBlock(g, L.lines, x + 18, L.y + 17, 'lbl code', 'start');
+      } else {
+        if (s.blocked) el('line', { x1: x, y1: L.y + 4, x2: x, y2: L.y + L.h - 4, class: 'blocked' }, g);
+        else el('path', { d: `M${x + 6},${L.y + 6} h18 v14 h-16`, class: 'arrow', 'marker-end': `url(#arr-${tone === 'info' ? 'ink' : tone})` }, g);
+        textBlock(g, L.lines, x + 30, L.y + 17, 'lbl' + (isCode(s.label) ? ' code' : ''), 'start');
+      }
+    } else {
+      const xs = s.over.map(xOf);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+      el('rect', { x: cx - L.span / 2, y: L.y + 5, width: L.span, height: L.h - 10, rx: 6, class: 'note ' + tone }, g);
+      textBlock(g, L.lines, cx, L.y + 20, 'lbl');
+    }
+    g.addEventListener('click', () => go(i + 1));
+    return g;
+  });
+
+  // ---------- state ----------
+  const keyOf = r => String(r[0]);
+  const states = [{ committed: M.initialDb, pending: {}, locks: [], views: {} }];
+  steps.forEach((s, i) => {
+    const prev = states[i];
+    const d = s.state || {};
+    states.push({
+      committed: d.committed || prev.committed,
+      pending: { ...prev.pending, ...(d.pending || {}) },
+      locks: d.locks || prev.locks,
+      views: d.views ? { ...prev.views, ...d.views } : prev.views,
+    });
+  });
+
+  function renderTable(rows, compareTo, markNew) {
+    const ref = Object.fromEntries((compareTo || []).map(r => [keyOf(r), r]));
+    let h = '<table><thead><tr>' + M.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>';
+    if (!rows.length) h += `<tr><td colspan="${M.columns.length}" style="color:var(--muted)">(empty)</td></tr>`;
+    rows.forEach(r => {
+      const old = ref[keyOf(r)];
+      h += `<tr class="${!old && markNew ? 'new' : ''}">` + r.map((v, ci) =>
+        `<td class="${old && String(old[ci]) !== String(v) ? 'changed' : ''}">${esc(v)}</td>`).join('') + '</tr>';
+    });
+    return h + '</tbody></table>';
+  }
+  const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const label = id => (pById[id] ? pById[id].label : id);
+
+  // ---------- source ----------
+  const codeEl = document.getElementById('code');
+  const lineToStep = {};
+  steps.forEach((s, i) => (s.lines || []).forEach(l => { if (!(l in lineToStep)) lineToStep[l] = i + 1; }));
+  const lineEls = SRC ? SRC.split('\n').map((txt, i) => {
+    const d = document.createElement('span');
+    d.className = 'ln' + (lineToStep[i + 1] ? ' ref' : '');
+    d.innerHTML = `<span class="n">${i + 1}</span>` + esc(txt) + '\n';
+    if (lineToStep[i + 1]) d.addEventListener('click', () => go(lineToStep[i + 1]));
+    codeEl.appendChild(d);
+    return d;
+  }) : [];
+
+  // ---------- player ----------
+  const scrub = document.getElementById('scrub');
+  scrub.max = steps.length;
+  let cur = 0, timer = null;
+
+  function go(n) {
+    cur = Math.max(0, Math.min(steps.length, n));
+    scrub.value = cur;
+    document.getElementById('pos').textContent = `${cur} / ${steps.length}`;
+    stepEls.forEach((g, i) => {
+      g.classList.toggle('current', i + 1 === cur);
+      g.classList.toggle('future', i + 1 > cur);
+    });
+
+    const s = steps[cur - 1];
+    const who = document.getElementById('step-who'), title = document.getElementById('step-title'), ex = document.getElementById('step-explain');
+    if (!s) {
+      who.textContent = 'Before the test body runs';
+      title.textContent = 'Initial state (@Sql setup)';
+      ex.textContent = 'Press → or click a step to start.';
+    } else {
+      who.textContent = s.kind === 'message' || s.kind === 'signal' ? `${label(s.from)} → ${label(s.to)}`
+        : s.kind === 'note' ? 'Note over ' + s.over.map(label).join(', ') : label(s.at);
+      title.textContent = (s.kind === 'signal' ? 'signal ' : '') + (s.label || s.text) + (s.result ? '\n→ ' + s.result : '');
+      ex.textContent = s.explain || '';
+    }
+
+    const st = states[cur], prev = states[Math.max(0, cur - 1)];
+    let h = `<div class="tbl-label"><b>${esc(M.table || 'table')}</b> — committed</div>` + renderTable(st.committed, cur ? prev.committed : null, cur > 0);
+    for (const tx in st.pending) {
+      if (!st.pending[tx].length) continue;
+      h += `<div class="tbl-label"><b>${esc(label(tx))}</b> — uncommitted writes (invisible to others)</div>` + renderTable(st.pending[tx], st.committed, true);
+    }
+    document.getElementById('db').innerHTML = h;
+    document.getElementById('facts').innerHTML =
+      st.locks.map(l => `<li>🔒 ${esc(l)}</li>`).join('') +
+      Object.entries(st.views).map(([k, v]) => `<li>👁 <b>${esc(label(k))}</b>: ${esc(v)}</li>`).join('');
+
+    const hl = new Set(s ? s.lines || [] : []);
+    lineEls.forEach((d, i) => d.classList.toggle('hl', hl.has(i + 1)));
+    if (hl.size) {
+      const first = lineEls[Math.min(...hl) - 1];
+      if (first) codeEl.scrollTop = first.offsetTop - codeEl.clientHeight / 3;
+    }
+    if (s) {
+      const wrapEl = document.getElementById('diagram-wrap');
+      const r = stepEls[cur - 1].getBoundingClientRect();
+      if (r.top < 60 || r.bottom > window.innerHeight) stepEls[cur - 1].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+  function play() {
+    if (timer) { clearInterval(timer); timer = null; document.getElementById('play').textContent = '▶'; return; }
+    if (cur >= steps.length) go(0);
+    document.getElementById('play').textContent = '⏸';
+    timer = setInterval(() => { if (cur >= steps.length) play(); else go(cur + 1); }, 1400);
+  }
+  document.getElementById('first').onclick = () => go(0);
+  document.getElementById('prev').onclick = () => go(cur - 1);
+  document.getElementById('next').onclick = () => go(cur + 1);
+  document.getElementById('play').onclick = play;
+  scrub.oninput = () => go(+scrub.value);
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowRight') { go(cur + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { go(cur - 1); e.preventDefault(); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(steps.length);
+    else if (e.key === ' ') { play(); e.preventDefault(); }
+  });
+  go(0);
+})();
+</script>
+</body>
+</html>
