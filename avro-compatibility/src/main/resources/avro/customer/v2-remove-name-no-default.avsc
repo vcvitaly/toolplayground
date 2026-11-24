@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Removes 'name', which has no default in v1: backward compatible only.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ]
+      }
+    }
+  ]
+}

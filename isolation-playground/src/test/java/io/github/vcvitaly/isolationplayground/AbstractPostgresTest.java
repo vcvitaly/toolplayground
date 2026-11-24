@@ -1,6 +1,5 @@
 package io.github.vcvitaly.isolationplayground;
 
-import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,7 @@ public abstract class AbstractPostgresTest {
     protected final AtomicReference<TransactionalPhase> phase = new AtomicReference<>();
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine");
 
     @Autowired
     protected AccountsRepository accountsRepository;

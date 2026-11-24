@@ -1,0 +1,30 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Renames 'name' to 'fullName' with an alias on the new side: backward compatible only.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "fullName",
+      "type": "string",
+      "aliases": [
+        "name"
+      ]
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Baseline schema every v2 variant is compared against.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Adds the PLATINUM enum symbol: backward compatible; forward only if the old reader has an enum default.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD",
+          "PLATINUM"
+        ]
+      }
+    }
+  ]
+}

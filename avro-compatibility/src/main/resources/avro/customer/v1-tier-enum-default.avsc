@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "v1 with an enum default: an old reader that tolerates unknown symbols.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ],
+        "default": "BASIC"
+      }
+    }
+  ]
+}

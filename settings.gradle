@@ -1,3 +1,6 @@
 rootProject.name = 'toolplayground'
 
 include 'isolation-playground'
+include 'locking-playground'
+include 'db-common'
+include 'avro-compatibility'
