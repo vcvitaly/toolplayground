@@ -1,0 +1,31 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Follows v2-add-email-with-default and drops the default: backward compatible with v2 but not with v1.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ]
+      }
+    },
+    {
+      "name": "email",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "Customer",
+  "namespace": "io.github.vcvitaly.avro",
+  "doc": "Adds a field with a default: backward and forward compatible (FULL).",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "tier",
+      "type": {
+        "type": "enum",
+        "name": "Tier",
+        "symbols": [
+          "BASIC",
+          "GOLD"
+        ]
+      }
+    },
+    {
+      "name": "email",
+      "type": "string",
+      "default": "unknown"
+    }
+  ]
+}
