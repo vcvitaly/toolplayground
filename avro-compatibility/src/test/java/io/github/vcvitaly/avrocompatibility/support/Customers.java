@@ -16,8 +16,13 @@ public final class Customers {
     public static GenericRecordBuilder customer(CustomerSchema version, Number id, String name, String tier) {
         Schema schema = version.schema();
         GenericRecordBuilder builder = new GenericRecordBuilder(schema)
-                .set("id", schema.getField("id").schema().getType() == Schema.Type.LONG ? id.longValue() : id.intValue())
                 .set("tier", tier(schema, tier));
+        // Explicit branches: a ternary would promote the int branch to long and box both as Long.
+        if (schema.getField("id").schema().getType() == Schema.Type.LONG) {
+            builder.set("id", Long.valueOf(id.longValue()));
+        } else {
+            builder.set("id", Integer.valueOf(id.intValue()));
+        }
         if (schema.getField("name") != null) {
             builder.set("name", name);
         }

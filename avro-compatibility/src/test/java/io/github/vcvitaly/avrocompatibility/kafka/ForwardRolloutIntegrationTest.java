@@ -1,12 +1,10 @@
 package io.github.vcvitaly.avrocompatibility.kafka;
 
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.github.vcvitaly.avrocompatibility.schema.CustomerSchema;
 import io.github.vcvitaly.avrocompatibility.support.AbstractKafkaAvroIntegrationTest;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.errors.RecordDeserializationException;
-import org.apache.kafka.common.errors.SerializationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -24,12 +22,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *   <li>Consumers still run v1 and must read them.</li>
  *   <li>Consumers are redeployed later, at their own pace.</li>
  * </ol>
+ * Topics have a single partition, so records are consumed in the order they were produced.
  */
 class ForwardRolloutIntegrationTest extends AbstractKafkaAvroIntegrationTest {
 
     @Test
     void oldConsumer_readsMessagesFromAnUpgradedProducer() {
-        String topic = uniqueTopic();
+        String topic = newTopic();
         setCompatibility(valueSubject(topic), "FORWARD");
 
         kafka.produce(topic, v1(1, "Ada"));
@@ -41,25 +40,24 @@ class ForwardRolloutIntegrationTest extends AbstractKafkaAvroIntegrationTest {
         List<GenericRecord> received = kafka.consume(topic, CustomerSchema.V1.schema(), 2);
 
         assertThat(received).extracting(r -> str(r, "name")).containsExactly("Ada", "Grace");
-        assertThat(received.getLast().getSchema().getField("email")).isNull();
+        assertThat(received).allSatisfy(r -> assertThat(r.getSchema().getField("email")).isNull());
     }
 
     @Test
     void forwardMode_stopsAProducerFromRemovingAFieldOldConsumersNeed() {
-        String topic = uniqueTopic();
+        String topic = newTopic();
         setCompatibility(valueSubject(topic), "FORWARD");
         kafka.produce(topic, v1(1, "Ada"));
 
-        assertThatThrownBy(() -> kafka.produce(topic, customer(CustomerSchema.V2_REMOVE_NAME_NO_DEFAULT, 2, null, "GOLD").build()))
-                .isInstanceOf(SerializationException.class)
-                .hasCauseInstanceOf(RestClientException.class);
+        assertProducerRejectedAsIncompatible(() -> kafka.produce(topic,
+                customer(CustomerSchema.V2_REMOVE_NAME_NO_DEFAULT, 2, null, "GOLD").build()));
     }
 
     @Test
     void wrongModeForTheRolloutOrder_breaksOldConsumers() {
         // BACKWARD accepts removing 'name', but that only protects consumers that upgraded first.
         // Upgrading the producer first with this schema breaks every consumer still on v1.
-        String topic = uniqueTopic();
+        String topic = newTopic();
         setCompatibility(valueSubject(topic), "BACKWARD");
         kafka.produce(topic, v1(1, "Ada"));
 

@@ -70,7 +70,7 @@ class CompatibilityModeIntegrationTest extends AbstractKafkaAvroIntegrationTest 
 
     /** Creates a fresh subject with the given compatibility level and v1 already registered. */
     private String subjectWith(String compatibility) {
-        String subject = valueSubject(uniqueTopic());
+        String subject = newSubject();
         setCompatibility(subject, compatibility);
         try {
             register(subject, CustomerSchema.V1);

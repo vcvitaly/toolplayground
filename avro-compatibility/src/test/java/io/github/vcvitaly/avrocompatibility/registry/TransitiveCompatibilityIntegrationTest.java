@@ -20,7 +20,7 @@ class TransitiveCompatibilityIntegrationTest extends AbstractKafkaAvroIntegratio
 
     @Test
     void backward_checksOnlyTheLatestVersion() throws Exception {
-        String subject = valueSubject(uniqueTopic());
+        String subject = newSubject();
         setCompatibility(subject, "BACKWARD");
 
         register(subject, CustomerSchema.V1);
@@ -32,7 +32,7 @@ class TransitiveCompatibilityIntegrationTest extends AbstractKafkaAvroIntegratio
 
     @Test
     void backwardTransitive_checksEveryEarlierVersion() throws Exception {
-        String subject = valueSubject(uniqueTopic());
+        String subject = newSubject();
         setCompatibility(subject, "BACKWARD_TRANSITIVE");
 
         register(subject, CustomerSchema.V1);
